@@ -30,6 +30,17 @@ class Aircraft():
     def render(self, stdscr):
         self.sprite.render(stdscr, int(self.x), int(self.y))
 
+class Ammo(Aircraft):
+    def __init__(self, x, y, col=1):
+        self.sprite = Sprite('ammo', 1)
+        self.x = x
+        self.y = y
+        self.col = col
+
+    def move(self):
+        self.y += 0.01
+
+
 class Enemy(Aircraft):
     def __init__(self, sprite, x, y, vx, vy, hp, ai=1):
         self.sprite = Sprite(sprite, 2)
@@ -158,6 +169,7 @@ class Game():
         self.display_window_contents = []
         self.bullets = []
         self.enimies = []
+        self.ammo = None
         self.close = False
 
     def init_screen(self, stdscr):
@@ -260,6 +272,13 @@ class Game():
                             self.player.points += 2
                             del self.bullets[i]
 
+                if self.ammo is not None:
+                    self.ammo.render(self.stdscr)
+                    self.ammo.move()
+                    if collision_check(self.ammo, self.player):
+                        self.player.ammo += 500
+                        self.ammo = None
+
             #self.stdscr.move(self.cursor_y, self.cursor_x)
             self.player.move(self.cursor_x, self.cursor_y)
             self.player.render(self.stdscr)
@@ -267,18 +286,24 @@ class Game():
             if self.k != -1:
                 self.process_input()
 
-            if self.player.kills > 1:
-                if random.random() > 0.995:
-                    enemy = Enemy('enemy0', 20, 20, 1, 0, 10, ai=2)
-                    self.enimies.append(enemy)
-                if random.random() > 0.995:
-                    enemy = Enemy('enemy0', self.width-20, 20, 1, 0, 10, ai=3)
-                    self.enimies.append(enemy)
+            if len(self.enimies) < 6:
+                if self.player.kills > 1:
+                    if random.random() > 0.995:
+                        enemy = Enemy('enemy0', 20, 20, 1, 0, 10, ai=2)
+                        self.enimies.append(enemy)
+                    if random.random() > 0.995:
+                        enemy = Enemy('enemy0', self.width-20, 20, 1, 0, 10, ai=3)
+                        self.enimies.append(enemy)
 
-            if self.player.kills > 5:
-                if random.random() > 0.997:
-                    enemy = Enemy('enemy2', self.width // 2, 10, 0.5, 0.1, 40, ai=4)
-                    self.enimies.append(enemy)
+                if self.player.kills > 5:
+                    if random.random() > 0.997:
+                        enemy = Enemy('enemy2', self.width // 2, 10, 0.5, 0.1, 40, ai=4)
+                        self.enimies.append(enemy)
+
+            if self.player.ammo < 200:
+                if self.ammo is None:
+                    if random.random() > 0.95:
+                        self.ammo = Ammo(random.randint(20, 100), 20)
 
             self.stdscr.refresh()
 
