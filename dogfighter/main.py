@@ -30,15 +30,17 @@ class Aircraft():
     def render(self, stdscr):
         self.sprite.render(stdscr, int(self.x), int(self.y))
 
-class Ammo(Aircraft):
+class Ammo(Bullet):
     def __init__(self, x, y, col=1):
         self.sprite = Sprite('ammo', 1)
         self.x = x
         self.y = y
         self.col = col
+        self.vel = 0.3
 
-    def move(self):
-        self.y += 0.01
+    def render(self, stdscr):
+        self.sprite.render(stdscr, int(self.x), int(self.y), col=1)
+
 
 
 class Enemy(Aircraft):
@@ -110,8 +112,8 @@ class Enemy(Aircraft):
                 self.dead = True
 
 
-    def damage(self):
-        self.hp -= int(random.random()*3)
+    def damage(self, d=2):
+        self.hp -= d
         if self.hp <= 0:
             self.sprite = Sprite('enemy0_death', 3)
 
@@ -253,6 +255,11 @@ class Game():
                 elif e.y > self.height - 5:
                     del self.enimies[i]
 
+                if collision_check(e, self.player):
+                    self.player.hp -= e.init_hp
+                    self.player.points -= e.init_hp*2
+                    e.damage(100)
+
             for i, b in enumerate(self.bullets):
                 self.bullets[i].update()
                 if b.y <= 1:
@@ -272,12 +279,14 @@ class Game():
                             self.player.points += 2
                             del self.bullets[i]
 
-                if self.ammo is not None:
-                    self.ammo.render(self.stdscr)
-                    self.ammo.move()
-                    if collision_check(self.ammo, self.player):
-                        self.player.ammo += 500
-                        self.ammo = None
+            if self.ammo is not None:
+                self.ammo.render(self.stdscr)
+                self.ammo.update()
+                if self.ammo.y > self.height - 10:
+                    self.ammo = None
+                elif collision_check(self.ammo, self.player):
+                    self.player.ammo += 500
+                    self.ammo = None
 
             #self.stdscr.move(self.cursor_y, self.cursor_x)
             self.player.move(self.cursor_x, self.cursor_y)
