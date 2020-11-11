@@ -5,6 +5,31 @@ import random
 from sprite_loader import Sprite
 
 
+belts = [
+    '...',
+    '.,.',
+    '.\'\'',
+    '\'""',
+    '"""',
+    '"|"',
+    '|||',
+    '||^',
+    '^|^',
+    '^^^'
+]
+
+
+def get_bullet_damage(bullet):
+    return {
+        '.': 2,
+        ',': 3,
+        '\'': 4,
+        '"': 5,
+        '|': 8,
+        '^': 10,
+        'v': 10,
+    }.get(bullet, 1)
+
 
 class Bullet():
     def __init__(self, char, vel, col, x, y):
@@ -45,8 +70,10 @@ class Ammo(Bullet):
 
 class Enemy(Aircraft):
     def __init__(self, sprite, x, y, vx, vy, hp, ai=1):
+        self.name = sprite
         self.sprite = Sprite(sprite, 2)
         self.dead = False
+        self.explode = False
         self.init_hp = hp
         self.ai = ai
         self.hp = hp
@@ -55,44 +82,67 @@ class Enemy(Aircraft):
         self.y = y
         self.vx = vx
         self.vy = vy
+        self.tick = 0
+        if sprite in ['enemy0', 'enemy1']:
+            self.belt = '...'
+        if sprite in ['enemy2']:
+            self.belt = '..\''
+        if sprite in ['enemy3']:
+            self.belt = ',\'"'
 
     def shoot(self):
         bullets = []
+        char = self.belt[self.tick % len(self.belt)]
         if self.ai == 1:
             if random.random() > 0.95:
                 if self.ammo > 6:
-                    bullets.append(Bullet('.', 0.6, 0, self.x-5, self.y))
-                    bullets.append(Bullet('.', 0.6, 0, self.x+5, self.y))
-                    bullets.append(Bullet('.', 0.6, 0, self.x-5, self.y-1))
-                    bullets.append(Bullet('.', 0.6, 0, self.x+5, self.y-1))
-                    bullets.append(Bullet('.', 0.6, 0, self.x-5, self.y+1))
-                    bullets.append(Bullet('.', 0.6, 0, self.x+5, self.y+1))
+                    bullets.append(Bullet(char, 0.6, 0, self.x-5, self.y))
+                    bullets.append(Bullet(char, 0.6, 0, self.x+5, self.y))
+                    self.tick += 1
+                    char = self.belt[self.tick % len(self.belt)]
+                    bullets.append(Bullet(char, 0.6, 0, self.x-5, self.y-1))
+                    bullets.append(Bullet(char, 0.6, 0, self.x+5, self.y-1))
+                    self.tick += 1
+                    char = self.belt[self.tick % len(self.belt)]
+                    bullets.append(Bullet(char, 0.6, 0, self.x-5, self.y+1))
+                    bullets.append(Bullet(char, 0.6, 0, self.x+5, self.y+1))
                     self.ammo -= 6
         elif self.ai in [2, 3]:
             if random.random() > 0.92:
                 if self.ammo > 4:
-                    bullets.append(Bullet('.', 0.8, 0, self.x-4, self.y))
-                    bullets.append(Bullet('.', 0.8, 0, self.x+4, self.y))
-                    bullets.append(Bullet('.', 0.8, 0, self.x-4, self.y+1))
-                    bullets.append(Bullet('.', 0.8, 0, self.x+4, self.y+1))
+                    bullets.append(Bullet(char, 0.8, 0, self.x-4, self.y))
+                    bullets.append(Bullet(char, 0.8, 0, self.x+4, self.y))
+                    self.tick += 1
+                    char = self.belt[self.tick % len(self.belt)]
+                    bullets.append(Bullet(char, 0.8, 0, self.x-4, self.y+1))
+                    bullets.append(Bullet(char, 0.8, 0, self.x+4, self.y+1))
                     self.ammo -= 4
         elif self.ai in [4]:
-            if random.random() > 0.8:
+            if random.random() > 0.85:
                 if self.ammo > 2:
-                    bullets.append(Bullet('\'', 1.2, 0, self.x-4, self.y))
-                    bullets.append(Bullet('\'', 1.2, 0, self.x+4, self.y))
+                    bullets.append(Bullet(char, 1.2, 0, self.x-4, self.y))
+                    bullets.append(Bullet(char, 1.2, 0, self.x+4, self.y))
                     self.ammo -= 2
+        elif self.ai in [5]:
+            if random.random() > 0.85:
+                if self.ammo > 4:
+                    bullets.append(Bullet(char, 1.2, 0, self.x-4, self.y))
+                    bullets.append(Bullet(char, 1.2, 0, self.x+4, self.y))
+                    bullets.append(Bullet(char, 1.2, 0, self.x-3, self.y))
+                    bullets.append(Bullet(char, 1.2, 0, self.x+3, self.y))
+                    self.ammo -= 4
 
+        self.tick += 1
         return bullets
 
     def move(self):
         if self.ai == 1:
             self.x += self.vx
             if self.x >= 150:
-                self.vx = -0.8
+                self.vx = -self.vx
                 self.y += 1
             if self.x <= 50:
-                self.vx = 0.8
+                self.vx = -self.vx
                 self.y += 1
         elif self.ai == 2:
             self.x += 1
@@ -100,11 +150,11 @@ class Enemy(Aircraft):
         elif self.ai == 3:
             self.x += -1
             self.y += 0.3
-        elif self.ai == 4:
+        elif self.ai in [4, 5]:
             if self.x >= 150:
-                self.vx = -0.5
+                self.vx = -self.vx
             if self.x <= 50:
-                self.vx = 0.5
+                self.vx = -self.vx
             self.x += self.vx
             self.y += self.vy
         if self.hp <= 0:
@@ -115,7 +165,9 @@ class Enemy(Aircraft):
     def damage(self, d=2):
         self.hp -= d
         if self.hp <= 0:
-            self.sprite = Sprite('enemy0_death', 3)
+            if not self.explode:
+                self.sprite = Sprite('enemy0_death', 3)
+                self.explode = True
 
 class Player(Aircraft):
     def __init__(self, x, y, col=0):
@@ -123,6 +175,9 @@ class Player(Aircraft):
         self.col = col
         self.hp = 100
         self.ammo = 1000
+        self.explode = False
+        self.belt = '...'
+        self.tick = 0
         self.x = x
         self.y = y
         self.points = 0
@@ -141,19 +196,23 @@ class Player(Aircraft):
 
     def shoot(self):
         bullets = []
+        char = self.belt[self.tick % len(self.belt)]
         if self.ammo <= 4:
             return []
-        bullets.append(Bullet('.', -1, 1, self.x-3, self.y))
-        bullets.append(Bullet('.', -1, 1, self.x+3, self.y))
-        bullets.append(Bullet('.', -1, 1, self.x-4, self.y))
-        bullets.append(Bullet('.', -1, 1, self.x+4, self.y))
+        bullets.append(Bullet(char, -1, 1, self.x-3, self.y))
+        bullets.append(Bullet(char, -1, 1, self.x+3, self.y))
+        bullets.append(Bullet(char, -1, 1, self.x-4, self.y))
+        bullets.append(Bullet(char, -1, 1, self.x+4, self.y))
         self.ammo -= 4
+        self.tick += 1
         return bullets
 
-    def damage(self):
-        self.hp -= int(random.random()*3)
+    def damage(self, d=2):
+        self.hp -= d
         if self.hp <= 0:
-            self.sprite = Sprite('player_death', 3)
+            if not self.explode:
+                self.sprite = Sprite('player_death', 3)
+                self.explode = True
 
 
 def collision_check(projectile, target):
@@ -256,7 +315,7 @@ class Game():
                     del self.enimies[i]
 
                 if collision_check(e, self.player):
-                    self.player.hp -= e.init_hp
+                    self.player.damage(e.init_hp)
                     self.player.points -= e.init_hp*2
                     e.damage(100)
 
@@ -270,12 +329,12 @@ class Game():
                 # collision check
                 if b.vel > 0:
                     if collision_check(b, self.player):
-                        self.player.damage()
+                        self.player.damage(get_bullet_damage(b.char))
                         del self.bullets[i]
                 else:
                     for e in self.enimies:
                         if collision_check(b, e):
-                            e.damage()
+                            e.damage(get_bullet_damage(b.char))
                             self.player.points += 2
                             del self.bullets[i]
 
@@ -305,8 +364,19 @@ class Game():
                         self.enimies.append(enemy)
 
                 if self.player.kills > 5:
-                    if random.random() > 0.997:
+                    if random.random() > 0.999:
                         enemy = Enemy('enemy2', self.width // 2, 10, 0.5, 0.1, 40, ai=4)
+                        self.enimies.append(enemy)
+                    if random.random() > 0.999:
+                        enemy = Enemy('enemy2', self.width // 2, 10, -0.5, 0.1, 40, ai=4)
+                        self.enimies.append(enemy)
+
+                if self.player.kills > 10:
+                    if random.random() > 0.999:
+                        enemy = Enemy('enemy3', self.width // 2, 10, 1.2, 0.1, 80, ai=5)
+                        self.enimies.append(enemy)
+                    if random.random() > 0.999:
+                        enemy = Enemy('enemy3', self.width // 2, 10, -1.2, 0.1, 80, ai=5)
                         self.enimies.append(enemy)
 
             if self.player.ammo < 200:
