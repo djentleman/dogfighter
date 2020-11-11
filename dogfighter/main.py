@@ -67,6 +67,17 @@ class Ammo(Bullet):
         self.sprite.render(stdscr, int(self.x), int(self.y), col=1)
 
 
+class Upgr(Bullet):
+    def __init__(self, x, y, col=1):
+        self.sprite = Sprite('upgr', 1)
+        self.x = x
+        self.y = y
+        self.col = col
+        self.vel = 0.3
+
+    def render(self, stdscr):
+        self.sprite.render(stdscr, int(self.x), int(self.y), col=1)
+
 
 class Enemy(Aircraft):
     def __init__(self, sprite, x, y, vx, vy, hp, ai=1):
@@ -176,7 +187,8 @@ class Player(Aircraft):
         self.hp = 100
         self.ammo = 1000
         self.explode = False
-        self.belt = '...'
+        self.belt_id = 0
+        self.belt = belts[self.belt_id]
         self.tick = 0
         self.x = x
         self.y = y
@@ -196,6 +208,7 @@ class Player(Aircraft):
 
     def shoot(self):
         bullets = []
+        self.belt = belts[self.belt_id]
         char = self.belt[self.tick % len(self.belt)]
         if self.ammo <= 4:
             return []
@@ -231,6 +244,7 @@ class Game():
         self.bullets = []
         self.enimies = []
         self.ammo = None
+        self.upgr = None
         self.close = False
 
     def init_screen(self, stdscr):
@@ -259,9 +273,10 @@ class Game():
     def render_data(self):
         self.stdscr.addstr(10, 10, f'Health: {self.player.hp}')
         self.stdscr.addstr(11, 10, f'Ammo: {self.player.ammo}')
-        self.stdscr.addstr(12, 10, f'Points: {self.player.points}')
-        self.stdscr.addstr(13, 10, f'Kills: {self.player.kills}')
-        self.stdscr.addstr(14, 10, f'Lives: {self.player.lives}')
+        self.stdscr.addstr(12, 10, f'Belt: {self.player.belt}')
+        self.stdscr.addstr(13, 10, f'Points: {self.player.points}')
+        self.stdscr.addstr(14, 10, f'Kills: {self.player.kills}')
+        self.stdscr.addstr(15, 10, f'Lives: {self.player.lives}')
 
     def process_input(self):
         if self.k in [curses.KEY_DOWN, ord('j')]:
@@ -309,6 +324,8 @@ class Game():
                     if len(self.enimies) == 0:
                         self.enimies.append(Enemy('enemy1', 60, 10, 0.8, 0, 25))
                         self.enimies.append(Enemy('enemy1', 80, 18, -0.8, 0, 25))
+                    if e.name == 'enemy3':
+                        self.upgr = Upgr(e.x, e.y)
                 if e.x > self.width - 5 or e.x < 5:
                     del self.enimies[i]
                 elif e.y > self.height - 5:
@@ -337,6 +354,16 @@ class Game():
                             e.damage(get_bullet_damage(b.char))
                             self.player.points += 2
                             del self.bullets[i]
+
+            if self.upgr is not None:
+                self.upgr.render(self.stdscr)
+                self.upgr.update()
+                if self.upgr.y > self.height - 10:
+                    self.upgr = None
+                elif collision_check(self.upgr, self.player):
+                    self.player.ammo = 1000
+                    self.player.belt_id += 1
+                    self.upgr = None
 
             if self.ammo is not None:
                 self.ammo.render(self.stdscr)
