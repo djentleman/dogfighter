@@ -33,6 +33,7 @@ def get_bullet_damage(bullet):
         '|': 8,
         '^': 10,
         'v': 10,
+        'U': 15,
     }.get(bullet, 1)
 
 
@@ -48,9 +49,12 @@ class Bullet():
         self.y += self.vel
 
     def render(self, stdscr):
-        stdscr.attron(curses.color_pair(self.col))
-        stdscr.addstr(int(self.y), int(self.x), self.char)
-        stdscr.attroff(curses.color_pair(self.col))
+        try:
+            stdscr.attron(curses.color_pair(self.col))
+            stdscr.addstr(int(self.y), int(self.x), self.char)
+            stdscr.attroff(curses.color_pair(self.col))
+        except:
+            pass
 
 
 class Drop(Bullet):
@@ -89,7 +93,7 @@ class Aircraft():
 
     def render(self, stdscr):
         stdscr.attron(curses.color_pair(self.col))
-        stdscr.addstr(int(self.y-5), int(self.x-3), f'{self.hp}/{self.init_hp}')
+        #stdscr.addstr(int(self.y-5), int(self.x-3), f'{self.hp}/{self.init_hp}')
         self.sprite.render(stdscr, int(self.x), int(self.y))
         stdscr.attroff(curses.color_pair(self.col))
 
@@ -106,8 +110,9 @@ class Aircraft():
         char = self.belt[self.tick % len(self.belt)]
         if self.ammo > len(self.guns):
             for g in self.guns:
-                bullets.append(Bullet(char, self.gun_vel, self.col, self.x+g, self.y))
-                self.ammo -= 1
+                if random.random() < 1: # jan chance
+                    bullets.append(Bullet(char, self.gun_vel, self.col, self.x+g, self.y))
+                    self.ammo -= 1
         self.tick += 1
         return bullets
 
@@ -130,11 +135,17 @@ class Enemy(Aircraft):
             belt = ',\'"'
             guns = [-4, -3, 3, 4]
             gun_vel = 1.2
+        elif sprite in ['bossD']:
+            belt = '..".."..v..U'
+            gun_vel = 1
+            guns = [-6, -2, 0, 2, 6]
         else:
             belt = '.'
             guns = [0]
             gun_vel = 0.6
         super().__init__(sprite, x, y, vx, vy, hp, ai=ai, belt=belt, col=col, guns=guns, gun_vel=gun_vel)
+        if sprite in ['bossD']:
+            self.ammo == 2000
 
     def shoot(self):
         bullets = []
@@ -299,9 +310,9 @@ class Game():
                     self.player.points += e.init_hp*2
                     if e.name == 'enemy3':
                         self.upgr = Drop(e.x, e.y, 'upgr')
-                    if e.name == 'enemy2' and random.random() > 0.9:
+                    if e.name == 'enemy2' and random.random() > 0.7:
                         self.upgr = Drop(e.x, e.y, 'upgr')
-                    if e.name == 'enemy1' and random.random() > 0.95:
+                    if e.name == 'enemy1' and random.random() > 0.85:
                         self.upgr = Drop(e.x, e.y, 'upgr')
                     if e.name == 'enemy0' and random.random() > 0.95:
                         self.ammo = Drop(e.x, e.y, 'ammo')
@@ -324,7 +335,7 @@ class Game():
                 self.bullets[i].update()
                 if b.y <= 1+b.vel:
                     del self.bullets[i]
-                if b.y >= self.height-2-b.vel:
+                if b.y >= self.height-2+b.vel:
                     del self.bullets[i]
                 b.render(self.stdscr)
                 # collision check
@@ -433,15 +444,15 @@ class Game():
 
                     if self.player.kills > 30:
                         if random.random() > 0.998:
-                            enemy = Enemy('enemy3', self.width // 2, 10, 1.2, 0.1, 80, ai=5, col=2)
+                            enemy = Enemy('enemy3', self.width // 2, 10, 0.7, 0.1, 80, ai=5, col=2)
                             self.enimies.append(enemy)
                         if random.random() > 0.998:
-                            enemy = Enemy('enemy3', self.width // 2, 10, -1.2, 0.1, 80, ai=5, col=2)
+                            enemy = Enemy('enemy3', self.width // 2, 10, -0.7, 0.1, 80, ai=5, col=2)
                             self.enimies.append(enemy)
 
                 elif self.player.kills > 50:
                     if random.random() > 0.999:
-                        enemy = Enemy('bossD', self.width // 2, 10, 0.5, 0.05, 200, ai=5, col=2)
+                        enemy = Enemy('bossD', self.width // 2, 10, 0.5, 0.05, 300, ai=5, col=2)
                         self.enimies.append(enemy)
 
             if self.player.ammo < 200:
