@@ -21,6 +21,7 @@ belts = [
 
 def get_bullet_damage(bullet):
     return {
+        ' ': 0,
         '.': 2,
         ',': 3,
         '\'': 4,
@@ -47,17 +48,21 @@ class Bullet():
         stdscr.addstr(int(self.y), int(self.x), self.char)
         stdscr.attroff(curses.color_pair(self.col))
 
-class Aircraft():
-
-    def __init__(self):
-        pass
-
-    def render(self, stdscr):
-        self.sprite.render(stdscr, int(self.x), int(self.y))
 
 class Ammo(Bullet):
     def __init__(self, x, y, col=1):
         self.sprite = Sprite('ammo', 1)
+        self.x = x
+        self.y = y
+        self.col = col
+        self.vel = 0.3
+
+    def render(self, stdscr):
+        self.sprite.render(stdscr, int(self.x), int(self.y), col=1)
+
+class Repr(Bullet):
+    def __init__(self, x, y, col=1):
+        self.sprite = Sprite('repr', 1)
         self.x = x
         self.y = y
         self.col = col
@@ -78,73 +83,90 @@ class Upgr(Bullet):
     def render(self, stdscr):
         self.sprite.render(stdscr, int(self.x), int(self.y), col=1)
 
+class Aircraft():
 
-class Enemy(Aircraft):
-    def __init__(self, sprite, x, y, vx, vy, hp, ai=1):
+    def __init__(self, sprite, x, y, vx, vy, hp, ai=1, ammo=300, col=0, belt='.', guns=[-5, 5], gun_vel=1):
         self.name = sprite
         self.sprite = Sprite(sprite, 2)
         self.dead = False
         self.explode = False
         self.init_hp = hp
-        self.ai = ai
         self.hp = hp
-        self.ammo = 300
+        self.ai = ai
+        self.ammo = ammo
         self.x = x
         self.y = y
+        self.init_x = x
+        self.init_y = y
         self.vx = vx
         self.vy = vy
+        self.col = col
         self.tick = 0
-        if sprite in ['enemy0', 'enemy1']:
-            self.belt = '...'
-        if sprite in ['enemy2']:
-            self.belt = '..\''
-        if sprite in ['enemy3']:
-            self.belt = ',\'"'
+        self.guns = guns
+        self.belt = belt
+        self.gun_vel = gun_vel
+
+    def render(self, stdscr):
+        stdscr.attron(curses.color_pair(self.col))
+        self.sprite.render(stdscr, int(self.x), int(self.y))
+        stdscr.attroff(curses.color_pair(self.col))
+
+
+    def damage(self, d=2):
+        self.hp -= d
+        if self.hp <= 0:
+            if not self.explode:
+                self.explode = True
+                self.sprite = Sprite(f'{self.name}_death', 3)
 
     def shoot(self):
         bullets = []
         char = self.belt[self.tick % len(self.belt)]
-        if self.ai == 1:
-            if random.random() > 0.95:
-                if self.ammo > 6:
-                    bullets.append(Bullet(char, 0.6, 0, self.x-5, self.y))
-                    bullets.append(Bullet(char, 0.6, 0, self.x+5, self.y))
-                    self.tick += 1
-                    char = self.belt[self.tick % len(self.belt)]
-                    bullets.append(Bullet(char, 0.6, 0, self.x-5, self.y-1))
-                    bullets.append(Bullet(char, 0.6, 0, self.x+5, self.y-1))
-                    self.tick += 1
-                    char = self.belt[self.tick % len(self.belt)]
-                    bullets.append(Bullet(char, 0.6, 0, self.x-5, self.y+1))
-                    bullets.append(Bullet(char, 0.6, 0, self.x+5, self.y+1))
-                    self.ammo -= 6
-        elif self.ai in [2, 3]:
-            if random.random() > 0.92:
-                if self.ammo > 4:
-                    bullets.append(Bullet(char, 0.8, 0, self.x-4, self.y))
-                    bullets.append(Bullet(char, 0.8, 0, self.x+4, self.y))
-                    self.tick += 1
-                    char = self.belt[self.tick % len(self.belt)]
-                    bullets.append(Bullet(char, 0.8, 0, self.x-4, self.y+1))
-                    bullets.append(Bullet(char, 0.8, 0, self.x+4, self.y+1))
-                    self.ammo -= 4
-        elif self.ai in [4]:
-            if random.random() > 0.85:
-                if self.ammo > 2:
-                    bullets.append(Bullet(char, 1.2, 0, self.x-4, self.y))
-                    bullets.append(Bullet(char, 1.2, 0, self.x+4, self.y))
-                    self.ammo -= 2
-        elif self.ai in [5]:
-            if random.random() > 0.85:
-                if self.ammo > 4:
-                    bullets.append(Bullet(char, 1.2, 0, self.x-4, self.y))
-                    bullets.append(Bullet(char, 1.2, 0, self.x+4, self.y))
-                    bullets.append(Bullet(char, 1.2, 0, self.x-3, self.y))
-                    bullets.append(Bullet(char, 1.2, 0, self.x+3, self.y))
-                    self.ammo -= 4
-
+        if self.ammo > len(self.guns):
+            for g in self.guns:
+                bullets.append(Bullet(char, self.gun_vel, self.col, self.x+g, self.y))
+                self.ammo -= 1
         self.tick += 1
         return bullets
+
+
+class Enemy(Aircraft):
+    def __init__(self, sprite, x, y, vx, vy, hp, ai=1, col=0):
+        if sprite in ['enemy0']:
+            belt = '. .'
+            guns = [-5, 5]
+            gun_vel = 0.5
+        elif sprite in ['enemy1']:
+            belt = '...'
+            guns = [-4, 4]
+            gun_vel = 0.6
+        elif sprite in ['enemy2']:
+            belt = '..\''
+            guns = [-4, 4]
+            gun_vel = 0.8
+        elif sprite in ['enemy3']:
+            belt = ',\'"'
+            guns = [-4, -3, 3, 4]
+            gun_vel = 1.2
+        else:
+            belt = '.'
+            guns = [0]
+            gun_vel = 0.6
+        super().__init__(sprite, x, y, vx, vy, hp, ai=ai, belt=belt, col=col, guns=guns, gun_vel=gun_vel)
+
+    def shoot(self):
+        bullets = []
+        char = self.belt[self.tick % len(self.belt)]
+        if self.ai == [1, 6]:
+            if random.random() > 0.95:
+                return super().shoot()
+        elif self.ai in [2, 3]:
+            if random.random() > 0.92:
+                return super().shoot()
+        elif self.ai in [4, 5]:
+            if random.random() > 0.85:
+                return super().shoot()
+        return []
 
     def move(self):
         if self.ai == 1:
@@ -168,64 +190,36 @@ class Enemy(Aircraft):
                 self.vx = -self.vx
             self.x += self.vx
             self.y += self.vy
+        elif self.ai == 6:
+            self.y += self.vy
         if self.hp <= 0:
             if self.sprite.render_count > self.sprite.l+1:
                 self.dead = True
 
 
-    def damage(self, d=2):
-        self.hp -= d
-        if self.hp <= 0:
-            if not self.explode:
-                self.sprite = Sprite('enemy0_death', 3)
-                self.explode = True
-
 class Player(Aircraft):
-    def __init__(self, x, y, col=0):
-        self.sprite = Sprite('player', 2)
-        self.col = col
-        self.hp = 100
-        self.ammo = 1000
-        self.explode = False
+    def __init__(self, x, y, col=1):
+        super().__init__('player', x, y, 0, 0, 100, ammo=1000, ai=0, belt='...', col=col, guns=[-4, -3, 3, 4], gun_vel=-1)
         self.belt_id = 0
         self.belt = belts[self.belt_id]
-        self.tick = 0
-        self.x = x
-        self.y = y
         self.points = 0
         self.kills = 0
-        self.lives = 2
+        self.lives = 3
 
-    def move(self, x, y):
-        self.x = x
-        self.y = y
+    def move(self):
         if self.hp <= 0:
             if self.sprite.render_count > self.sprite.l+1:
                 self.sprite = Sprite('player', 2)
                 self.lives -= 1
+                self.explode = False
+                self.x = self.init_x
+                self.y = self.init_y
                 self.hp = 100
                 self.ammo = 1000
 
     def shoot(self):
-        bullets = []
         self.belt = belts[self.belt_id]
-        char = self.belt[self.tick % len(self.belt)]
-        if self.ammo <= 4:
-            return []
-        bullets.append(Bullet(char, -1, 1, self.x-3, self.y))
-        bullets.append(Bullet(char, -1, 1, self.x+3, self.y))
-        bullets.append(Bullet(char, -1, 1, self.x-4, self.y))
-        bullets.append(Bullet(char, -1, 1, self.x+4, self.y))
-        self.ammo -= 4
-        self.tick += 1
-        return bullets
-
-    def damage(self, d=2):
-        self.hp -= d
-        if self.hp <= 0:
-            if not self.explode:
-                self.sprite = Sprite('player_death', 3)
-                self.explode = True
+        return super().shoot()
 
 
 def collision_check(projectile, target):
@@ -245,6 +239,7 @@ class Game():
         self.enimies = []
         self.ammo = None
         self.upgr = None
+        self.repr = None
         self.close = False
 
     def init_screen(self, stdscr):
@@ -254,9 +249,9 @@ class Game():
         self.height, self.width = self.stdscr.getmaxyx()
 
         self.k = 0
-        self.cursor_x = self.width // 2
-        self.cursor_y = int(self.height * 0.8)
-        self.player = Player(self.cursor_x, self.cursor_y, col=1)
+        px = self.width // 2
+        py = int(self.height * 0.8)
+        self.player = Player(px, py, col=1)
 
         # Clear and refresh the screen for a blank canvas
         self.stdscr.clear()
@@ -280,25 +275,24 @@ class Game():
 
     def process_input(self):
         if self.k in [curses.KEY_DOWN, ord('j')]:
-            self.cursor_y = self.cursor_y + 1
+            self.player.y += 1
         elif self.k in [curses.KEY_UP, ord('k')]:
-            self.cursor_y = self.cursor_y - 1
+            self.player.y -= 1
         elif self.k in [curses.KEY_RIGHT, ord('l')]:
-            self.cursor_x = self.cursor_x + 1
+            self.player.x += 1
         elif self.k in [curses.KEY_LEFT, ord('h')]:
-            self.cursor_x = self.cursor_x - 1
+            self.player.x -= 1
         elif self.k == ord(' '):
             self.bullets += self.player.shoot()
         elif self.k == ord('q'):
             self.close = True
-        self.cursor_x = max(7, self.cursor_x)
-        self.cursor_x = min(self.width - 8, self.cursor_x)
-        self.cursor_y = max(5, self.cursor_y)
-        self.cursor_y = min(self.height - 6, self.cursor_y)
+        self.player.x = max(7, self.player.x)
+        self.player.x = min(self.width - 8, self.player.x)
+        self.player.y = max(5, self.player.y)
+        self.player.y = min(self.height - 6, self.player.y)
 
     def event_loop(self):
         self.stdscr.clear()
-        self.stdscr.move(self.cursor_y, self.cursor_x)
         ex = 75
         ey = 10
         enemy = Enemy('enemy1', ex, ey, 0.8, 0, 25)
@@ -321,9 +315,6 @@ class Game():
                     del self.enimies[i]
                     self.player.kills += 1
                     self.player.points += e.init_hp*2
-                    if len(self.enimies) == 0:
-                        self.enimies.append(Enemy('enemy1', 60, 10, 0.8, 0, 25))
-                        self.enimies.append(Enemy('enemy1', 80, 18, -0.8, 0, 25))
                     if e.name == 'enemy3':
                         self.upgr = Upgr(e.x, e.y)
                 if e.x > self.width - 5 or e.x < 5:
@@ -333,6 +324,10 @@ class Game():
 
                 if collision_check(e, self.player):
                     self.player.damage(e.init_hp)
+                    if self.player.explode:
+                        self.enimies = []
+                        self.bullets = []
+                        break
                     self.player.points -= e.init_hp*2
                     e.damage(100)
 
@@ -347,6 +342,10 @@ class Game():
                 if b.vel > 0:
                     if collision_check(b, self.player):
                         self.player.damage(get_bullet_damage(b.char))
+                        if self.player.explode:
+                            self.enimies = []
+                            self.bullets = []
+                            break
                         del self.bullets[i]
                 else:
                     for e in self.enimies:
@@ -363,7 +362,17 @@ class Game():
                 elif collision_check(self.upgr, self.player):
                     self.player.ammo = 1000
                     self.player.belt_id += 1
+                    self.player.hp += 20
                     self.upgr = None
+
+            if self.repr is not None:
+                self.repr.render(self.stdscr)
+                self.repr.update()
+                if self.repr.y > self.height - 10:
+                    self.repr = None
+                elif collision_check(self.repr, self.player):
+                    self.player.hp += 50
+                    self.repr = None
 
             if self.ammo is not None:
                 self.ammo.render(self.stdscr)
@@ -375,41 +384,67 @@ class Game():
                     self.ammo = None
 
             #self.stdscr.move(self.cursor_y, self.cursor_x)
-            self.player.move(self.cursor_x, self.cursor_y)
+            self.player.move()
             self.player.render(self.stdscr)
             self.k = self.stdscr.getch()
             if self.k != -1:
                 self.process_input()
 
             if len(self.enimies) < 6:
-                if self.player.kills > 1:
-                    if random.random() > 0.995:
-                        enemy = Enemy('enemy0', 20, 20, 1, 0, 10, ai=2)
-                        self.enimies.append(enemy)
-                    if random.random() > 0.995:
-                        enemy = Enemy('enemy0', self.width-20, 20, 1, 0, 10, ai=3)
-                        self.enimies.append(enemy)
+                if self.player.kills <= 20:
+                    if self.player.kills > 0:
+                        if random.random() > 0.995:
+                            enemy = Enemy('enemy0', 20, 20, 1, 0, 10, ai=2)
+                            self.enimies.append(enemy)
+                        if random.random() > 0.995:
+                            enemy = Enemy('enemy0', self.width-20, 20, 1, 0, 10, ai=3)
+                            self.enimies.append(enemy)
 
-                if self.player.kills > 5:
-                    if random.random() > 0.999:
+                    if self.player.kills > 5:
+                        if random.random() > 0.995:
+                            enemy = Enemy('enemy1', self.width // 2, 20, 0.8, 0, 25)
+                            self.enimies.append(enemy)
+                        if random.random() > 0.995:
+                            enemy = Enemy('enemy1', self.width // 2, 20, -0.6, 0, 25, ai=1)
+                            self.enimies.append(enemy)
+
+                    if self.player.kills > 10:
+                        if random.random() > 0.995:
+                            enemy = Enemy('enemy0', 20 + (self.width-20)*random.random(), 20, 0, 0.3, 10, ai=6)
+                            self.enimies.append(enemy)
+
+
+                if self.player.kills > 20:
+                    if random.random() > 0.997:
                         enemy = Enemy('enemy2', self.width // 2, 10, 0.5, 0.1, 40, ai=4)
                         self.enimies.append(enemy)
-                    if random.random() > 0.999:
+                    if random.random() > 0.997:
                         enemy = Enemy('enemy2', self.width // 2, 10, -0.5, 0.1, 40, ai=4)
                         self.enimies.append(enemy)
-
-                if self.player.kills > 10:
-                    if random.random() > 0.999:
-                        enemy = Enemy('enemy3', self.width // 2, 10, 1.2, 0.1, 80, ai=5)
+                    if random.random() > 0.997:
+                        enemy = Enemy('enemy1', self.width-20, 20, 1, 0, 25, ai=3)
                         self.enimies.append(enemy)
-                    if random.random() > 0.999:
-                        enemy = Enemy('enemy3', self.width // 2, 10, -1.2, 0.1, 80, ai=5)
+                    if random.random() > 0.997:
+                        enemy = Enemy('enemy1', 20, 20, 1, 0, 25, ai=2)
+                        self.enimies.append(enemy)
+
+                if self.player.kills > 40:
+                    if random.random() > 0.998:
+                        enemy = Enemy('enemy3', self.width // 2, 10, 1.2, 0.1, 80, ai=5, col=2)
+                        self.enimies.append(enemy)
+                    if random.random() > 0.998:
+                        enemy = Enemy('enemy3', self.width // 2, 10, -1.2, 0.1, 80, ai=5, col=2)
                         self.enimies.append(enemy)
 
             if self.player.ammo < 200:
                 if self.ammo is None:
-                    if random.random() > 0.95:
+                    if random.random() > 0.997:
                         self.ammo = Ammo(random.randint(20, 100), 20)
+
+            if self.player.hp < 30:
+                if self.repr is None:
+                    if random.random() > 0.999:
+                        self.repr = Repr(random.randint(20, 100), 20)
 
             self.stdscr.refresh()
 
