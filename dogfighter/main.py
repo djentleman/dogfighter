@@ -8,10 +8,14 @@ from sprite_loader import Sprite
 belts = [
     '...',
     '.,.',
-    '.\'\'',
+    '.,,',
+    '.,\'',
+    ',,"',
+    '\'\'\'',
     '\'""',
     '"""',
     '"|"',
+    '"||',
     '|||',
     '||^',
     '^|^',
@@ -49,32 +53,9 @@ class Bullet():
         stdscr.attroff(curses.color_pair(self.col))
 
 
-class Ammo(Bullet):
-    def __init__(self, x, y, col=1):
-        self.sprite = Sprite('ammo', 1)
-        self.x = x
-        self.y = y
-        self.col = col
-        self.vel = 0.3
-
-    def render(self, stdscr):
-        self.sprite.render(stdscr, int(self.x), int(self.y), col=1)
-
-class Repr(Bullet):
-    def __init__(self, x, y, col=1):
-        self.sprite = Sprite('repr', 1)
-        self.x = x
-        self.y = y
-        self.col = col
-        self.vel = 0.3
-
-    def render(self, stdscr):
-        self.sprite.render(stdscr, int(self.x), int(self.y), col=1)
-
-
-class Upgr(Bullet):
-    def __init__(self, x, y, col=1):
-        self.sprite = Sprite('upgr', 1)
+class Drop(Bullet):
+    def __init__(self, x, y, sprite, col=1):
+        self.sprite = Sprite(sprite, 1)
         self.x = x
         self.y = y
         self.col = col
@@ -108,6 +89,7 @@ class Aircraft():
 
     def render(self, stdscr):
         stdscr.attron(curses.color_pair(self.col))
+        stdscr.addstr(int(self.y-5), int(self.x-3), f'{self.hp}/{self.init_hp}')
         self.sprite.render(stdscr, int(self.x), int(self.y))
         stdscr.attroff(curses.color_pair(self.col))
 
@@ -157,11 +139,11 @@ class Enemy(Aircraft):
     def shoot(self):
         bullets = []
         char = self.belt[self.tick % len(self.belt)]
-        if self.ai == [1, 6]:
-            if random.random() > 0.95:
+        if self.ai in [1, 6]:
+            if random.random() > 0.92:
                 return super().shoot()
         elif self.ai in [2, 3]:
-            if random.random() > 0.92:
+            if random.random() > 0.95:
                 return super().shoot()
         elif self.ai in [4, 5]:
             if random.random() > 0.85:
@@ -199,7 +181,7 @@ class Enemy(Aircraft):
 
 class Player(Aircraft):
     def __init__(self, x, y, col=1):
-        super().__init__('player', x, y, 0, 0, 100, ammo=1000, ai=0, belt='...', col=col, guns=[-4, -3, 3, 4], gun_vel=-1)
+        super().__init__('player', x, y, 1, 0, 100, ammo=1000, ai=0, belt='...', col=col, guns=[-4, -3, 3, 4], gun_vel=-1)
         self.belt_id = 0
         self.belt = belts[self.belt_id]
         self.points = 0
@@ -218,7 +200,7 @@ class Player(Aircraft):
                 self.ammo = 1000
 
     def shoot(self):
-        self.belt = belts[self.belt_id]
+        self.belt = belts[min(self.belt_id, len(belts)-1)]
         return super().shoot()
 
 
@@ -275,13 +257,13 @@ class Game():
 
     def process_input(self):
         if self.k in [curses.KEY_DOWN, ord('j')]:
-            self.player.y += 1
+            self.player.y += self.player.vx
         elif self.k in [curses.KEY_UP, ord('k')]:
-            self.player.y -= 1
+            self.player.y -= self.player.vx
         elif self.k in [curses.KEY_RIGHT, ord('l')]:
-            self.player.x += 1
+            self.player.x += self.player.vx
         elif self.k in [curses.KEY_LEFT, ord('h')]:
-            self.player.x -= 1
+            self.player.x -= self.player.vx
         elif self.k == ord(' '):
             self.bullets += self.player.shoot()
         elif self.k == ord('q'):
@@ -316,7 +298,14 @@ class Game():
                     self.player.kills += 1
                     self.player.points += e.init_hp*2
                     if e.name == 'enemy3':
-                        self.upgr = Upgr(e.x, e.y)
+                        self.upgr = Drop(e.x, e.y, 'upgr')
+                    if e.name == 'enemy2' and random.random() > 0.9:
+                        self.upgr = Drop(e.x, e.y, 'upgr')
+                    if e.name == 'enemy1' and random.random() > 0.95:
+                        self.upgr = Drop(e.x, e.y, 'upgr')
+                    if e.name == 'enemy0' and random.random() > 0.95:
+                        self.ammo = Drop(e.x, e.y, 'ammo')
+
                 if e.x > self.width - 5 or e.x < 5:
                     del self.enimies[i]
                 elif e.y > self.height - 5:
@@ -333,9 +322,9 @@ class Game():
 
             for i, b in enumerate(self.bullets):
                 self.bullets[i].update()
-                if b.y <= 1:
+                if b.y <= 1+b.vel:
                     del self.bullets[i]
-                if b.y >= self.height-2:
+                if b.y >= self.height-2-b.vel:
                     del self.bullets[i]
                 b.render(self.stdscr)
                 # collision check
@@ -360,9 +349,23 @@ class Game():
                 if self.upgr.y > self.height - 10:
                     self.upgr = None
                 elif collision_check(self.upgr, self.player):
-                    self.player.ammo = 1000
-                    self.player.belt_id += 1
-                    self.player.hp += 20
+                    r = random.random()
+                    if r < 0.3:
+                        self.player.ammo = 1000
+                        self.player.belt_id += 1
+                    elif r < 0.5:
+                        self.player.init_hp += 30
+                        self.player.hp = self.player.init_hp
+                    elif r < 0.65:
+                        self.player.gun_vel -= 0.2
+                        self.player.ammo += 200
+                    elif r < 0.8:
+                        if len(self.player.guns) == 4:
+                            self.player.guns.append(0)
+                        else:
+                            self.player.gun_vel -= 0.2
+                    else:
+                        self.player.vx += 0.2
                     self.upgr = None
 
             if self.repr is not None:
@@ -371,7 +374,7 @@ class Game():
                 if self.repr.y > self.height - 10:
                     self.repr = None
                 elif collision_check(self.repr, self.player):
-                    self.player.hp += 50
+                    self.player.hp += self.player.init_hp
                     self.repr = None
 
             if self.ammo is not None:
@@ -414,7 +417,7 @@ class Game():
                             self.enimies.append(enemy)
 
 
-                if self.player.kills > 20:
+                elif self.player.kills > 20 and self.player.kills <= 50:
                     if random.random() > 0.997:
                         enemy = Enemy('enemy2', self.width // 2, 10, 0.5, 0.1, 40, ai=4)
                         self.enimies.append(enemy)
@@ -428,23 +431,28 @@ class Game():
                         enemy = Enemy('enemy1', 20, 20, 1, 0, 25, ai=2)
                         self.enimies.append(enemy)
 
-                if self.player.kills > 40:
-                    if random.random() > 0.998:
-                        enemy = Enemy('enemy3', self.width // 2, 10, 1.2, 0.1, 80, ai=5, col=2)
-                        self.enimies.append(enemy)
-                    if random.random() > 0.998:
-                        enemy = Enemy('enemy3', self.width // 2, 10, -1.2, 0.1, 80, ai=5, col=2)
+                    if self.player.kills > 30:
+                        if random.random() > 0.998:
+                            enemy = Enemy('enemy3', self.width // 2, 10, 1.2, 0.1, 80, ai=5, col=2)
+                            self.enimies.append(enemy)
+                        if random.random() > 0.998:
+                            enemy = Enemy('enemy3', self.width // 2, 10, -1.2, 0.1, 80, ai=5, col=2)
+                            self.enimies.append(enemy)
+
+                elif self.player.kills > 50:
+                    if random.random() > 0.999:
+                        enemy = Enemy('bossD', self.width // 2, 10, 0.5, 0.05, 200, ai=5, col=2)
                         self.enimies.append(enemy)
 
             if self.player.ammo < 200:
                 if self.ammo is None:
                     if random.random() > 0.997:
-                        self.ammo = Ammo(random.randint(20, 100), 20)
+                        self.ammo = Drop(random.randint(20, 100), 20, 'ammo')
 
             if self.player.hp < 30:
                 if self.repr is None:
                     if random.random() > 0.999:
-                        self.repr = Repr(random.randint(20, 100), 20)
+                        self.repr = Drop(random.randint(20, 100), 20, 'repr')
 
             self.stdscr.refresh()
 
