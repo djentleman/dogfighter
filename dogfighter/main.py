@@ -138,6 +138,11 @@ class Enemy(Aircraft):
             gun_vel = 1.1
             guns = [-6, -2, 0, 2, 6]
             ammo = 5000
+        if sprite in ['zep']:
+            belt = ' U         '
+            guns = [0]
+            gun_vel = 0.3
+            ammo = 1000
         else:
             belt = '.'
             guns = [0]
@@ -146,7 +151,7 @@ class Enemy(Aircraft):
 
     def shoot(self):
         char = self.belt[self.tick % len(self.belt)]
-        if self.name == 'bossD':
+        if self.name in ['bossD']:
             bullets = []
             if random.random() > 0.85:
                 bullets += super().shoot()
@@ -236,6 +241,7 @@ class Game():
         self.enimies = []
         self.drops = []
         self.close = False
+        self.boss_spawned = False
 
     def init_screen(self, stdscr):
         curses.halfdelay(1) # 10/10 = 1[s] inteval
@@ -315,7 +321,8 @@ class Game():
                         self.drops.append(Drop(e.x-10, e.y, 'upgr'))
                         self.drops.append(Drop(e.x+10, e.y, 'upgr'))
                         self.drops.append(Drop(e.x, e.y+10, 'ammo'))
-                        self.player.lives += 3
+                        self.player.lives += 1
+                        self.boss_spawned = False
                     if e.name == 'enemy3':
                         self.drops.append(Drop(e.x, e.y, 'upgr'))
                     if e.name == 'enemy2' and random.random() > 0.7:
@@ -324,6 +331,15 @@ class Game():
                         self.drops.append(Drop(e.x, e.y, 'upgr'))
                     if e.name == 'enemy0' and random.random() > 0.95:
                         self.drops.append(Drop(e.x, e.y, 'ammo'))
+                    if e.name == 'zep':
+                        if random.random() > 0.2:
+                            self.bullets.append(Bullet('U', 0.3, e.col, e.x, e.y))
+                            self.bullets.append(Bullet('U', 0.3, e.col, e.x+2, e.y))
+                            self.bullets.append(Bullet('U', 0.3, e.col, e.x-2, e.y))
+                            self.bullets.append(Bullet('U', 0.3, e.col, e.x, e.y+2))
+                            self.bullets.append(Bullet('U', 0.3, e.col, e.x, e.y-2))
+                        else:
+                            self.drops.append(Drop(e.x, e.y, 'upgr'))
 
                 if e.x > self.width - 5 or e.x < 5:
                     del self.enimies[i]
@@ -401,6 +417,7 @@ class Game():
             if self.k != -1:
                 self.process_input()
 
+
             if len(self.enimies) < 6:
                 if self.player.kills <= 20:
                     if self.player.kills > 0:
@@ -425,7 +442,7 @@ class Game():
                             self.enimies.append(enemy)
 
 
-                elif self.player.kills > 20 and self.player.kills <= 50:
+                elif self.player.kills > 20:
                     if random.random() > 0.997:
                         enemy = Enemy('enemy2', self.width // 2, 10, 0.5, 0.1, 40, ai=4)
                         self.enimies.append(enemy)
@@ -459,14 +476,21 @@ class Game():
                             enemy = Enemy('enemy2', 20, 20, 1, 0, 40, ai=2)
                             self.enimies.append(enemy)
 
+                if self.player.kills > 35:
+                    if random.random() > 0.997:
+                        enemy = Enemy('zep', 30, 10, 1, 0, 20, ai=5)
+                        self.enimies.append(enemy)
+
+
                 elif self.player.kills > 50:
-                    if len(self.enimies) == 0:
+                    if len(self.enimies) == 0 and not self.boss_spawned:
                         enemy = Enemy('bossD', self.width // 2, 10, 0.6, 0.03, 600, ai=5, col=2)
                         self.enimies.append(enemy)
                         enemy = Enemy('enemy3', 70, 10, 0.7, 0.1, 60, ai=5, col=0)
                         self.enimies.append(enemy)
                         enemy = Enemy('enemy3', self.width - 70, 30, -0.7, 0.1, 60, ai=5, col=0)
                         self.enimies.append(enemy)
+                        self.boss_spawned = True
 
             if self.player.ammo < 200:
                 if not any([d.name == 'ammo' for d in self.drops]):
