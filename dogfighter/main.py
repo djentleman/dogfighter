@@ -315,6 +315,7 @@ class Game():
                         self.drops.append(Drop(e.x-10, e.y, 'upgr'))
                         self.drops.append(Drop(e.x+10, e.y, 'upgr'))
                         self.drops.append(Drop(e.x, e.y+10, 'ammo'))
+                        self.player.lives += 3
                     if e.name == 'enemy3':
                         self.drops.append(Drop(e.x, e.y, 'upgr'))
                     if e.name == 'enemy2' and random.random() > 0.7:
