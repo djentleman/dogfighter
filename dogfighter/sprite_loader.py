@@ -1,11 +1,16 @@
 import curses
+import os
+from pathlib import Path
+
+ROOT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+SPRITES_DIR = ROOT_DIR / 'sprites'
 
 
 class Sprite():
     def __init__(self, path, length):
         self.l = length
         self.sprite_data = [
-            [list(l.replace('\n', '')) for l in open(f'sprites/{path}_{j}.txt').readlines()]
+            [list(l.replace('\n', '')) for l in open(str(SPRITES_DIR / f'{path}_{j}.txt')).readlines()]
             for j in range(self.l)]
         self.height = len(self.sprite_data[0])
         self.width = max([len(l) for l in self.sprite_data[0]])

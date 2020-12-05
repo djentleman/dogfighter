@@ -2,7 +2,7 @@ import sys
 import time
 import curses
 import random
-from sprite_loader import Sprite
+from dogfighter.sprite_loader import Sprite
 
 
 belts = [
